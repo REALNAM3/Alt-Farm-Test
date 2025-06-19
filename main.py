@@ -1,21 +1,13 @@
 import discord
 from discord import app_commands
 import requests
+import asyncio
+import datetime
 import os
 from flask import Flask
 from threading import Thread
 
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot activo y funcionando"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    Thread(target=run).start()
+GUILD_ID = discord.Object(id=1385103180756553851)
 
 PRESENCE_TYPES = {
     0: "Offline",
@@ -35,7 +27,7 @@ ALL_MODS = {
     "Vic": [839818760],
     "Erin": [2465133159],
     "Unknown": [7547477786, 7574577126, 2043525911, 5816563976, 240526951, 4531785383,
-                1160595313, 7876617827, 7693766866, 2568824396, 7604102307, 7587479685, 2505902503],
+                1160595313, 7876617827, 7693766866, 2568824396, 7604102307, 7587479685],
 }
 
 class MyClient(discord.Client):
@@ -43,53 +35,100 @@ class MyClient(discord.Client):
         intents = discord.Intents.default()
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
+        self.checking_task = None
 
     async def on_ready(self):
         print(f"Bot {self.user} ({self.user.id})")
 
     async def setup_hook(self):
-        await self.tree.sync()
+        await self.tree.sync(guild=GUILD_ID)
+
+    async def build_mod_status(self) -> str:
+        all_user_ids = list({uid for ids in ALL_MODS.values() for uid in ids})
+        response = requests.post("https://presence.roblox.com/v1/presence/users", json={"userIds": all_user_ids})
+        if response.status_code != 200:
+            return "Error."
+
+        presences = response.json().get("userPresences", [])
+        presence_dict = {user["userId"]: user["userPresenceType"] for user in presences}
+
+        message_lines = []
+        any_in_game = False
+
+        for mod_name, user_ids in ALL_MODS.items():
+            message_lines.append(f"**{mod_name}**")
+            for uid in user_ids:
+                presence_code = presence_dict.get(uid, 0)
+                user_info = requests.get(f"https://users.roblox.com/v1/users/{uid}")
+                username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
+
+                if presence_code == 1:
+                    line = f"```ini\n[Online]: {username}\n```"
+                elif presence_code == 2:
+                    line = f"```diff\n+ In Game: {username}\n```"
+                    any_in_game = True
+                elif presence_code == 3:
+                    line = f"```fix\nIn Studio: {username}\n```"
+                else:
+                    line = f"```diff\n- Offline: {username}\n```"
+                message_lines.append(line)
+            message_lines.append("")
+
+        status_line = "**Status: Unalt Farmable**" if any_in_game else "**Status: Farmable**"
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        message_lines.append(status_line)
+        message_lines.append(f"*Last update: {timestamp}*")
+
+        return "\n".join(message_lines)
 
 client = MyClient()
 
-@client.tree.command(name="mods", description="Shows if a mod is online")
+@client.tree.command(name="mods", description="Shows if a mod is online", guild=GUILD_ID)
 async def mods(interaction: discord.Interaction):
     await interaction.response.defer()
+    content = await client.build_mod_status()
+    await interaction.followup.send(content)
 
-    all_user_ids = list({uid for ids in ALL_MODS.values() for uid in ids})
-    response = requests.post("https://presence.roblox.com/v1/presence/users", json={"userIds": all_user_ids})
-    if response.status_code != 200:
-        await interaction.followup.send("Error")
-        return
+@client.tree.command(name="checkmods", description="Checks mods every 10 seconds", guild=GUILD_ID)
+async def checkmods(interaction: discord.Interaction):
+    await interaction.response.send_message("Started checking...", ephemeral=False)
+    message = await interaction.original_response()
 
-    presences = response.json().get("userPresences", [])
-    presence_dict = {user["userId"]: user["userPresenceType"] for user in presences}
+    async def periodic_check(msg):
+        while True:
+            content = await client.build_mod_status()
+            try:
+                await msg.edit(content=content)
+            except discord.NotFound:
+                break
+            await asyncio.sleep(10)
 
-    message_lines = []
+    if client.checking_task is None or client.checking_task.done():
+        client.checking_task = asyncio.create_task(periodic_check(message))
+    else:
+        await interaction.followup.send("The checking is already active.")
 
-    for mod_name, user_ids in ALL_MODS.items():
-        message_lines.append(f"**{mod_name}**")
-        for uid in user_ids:
-            presence_code = 4 if uid == 2505902503 else presence_dict.get(uid, 0)
-            user_info = requests.get(f"https://users.roblox.com/v1/users/{uid}")
-            username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
+@client.tree.command(name="stopcheck", description="Stops the check from the command /checkmods", guild=GUILD_ID)
+async def stopcheck(interaction: discord.Interaction):
+    if client.checking_task and not client.checking_task.done():
+        client.checking_task.cancel()
+        await interaction.response.send_message("Stopped checking.")
+    else:
+        await interaction.response.send_message("No current check.")
 
-            if presence_code == 1:
-                line = f"```ini\n[Online]: {username}\n```"
-            elif presence_code == 2:
-                line = f"```diff\n+ In Game: {username}\n```"
-            elif presence_code == 3:
-                line = f"```fix\nIn Studio: {username}\n```"
-            elif presence_code == 4:
-                line = f"```diff\n- Alt Farming: {username}\n```"
-            else:
-                line = f"```diff\n- Offline: {username}\n```"
+app = Flask('')
 
-            message_lines.append(line)
-        message_lines.append("")
+@app.route('/')
+def home():
+    return "BOT"
 
-    final_message = "\n".join(message_lines)
-    await interaction.followup.send(final_message)
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 keep_alive()
+
 client.run(os.getenv("BOT_TOKEN"))
