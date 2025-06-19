@@ -75,15 +75,15 @@ async def mods(interaction: discord.Interaction):
             username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
 
             if presence_code == 1:
-                line = f"```ini\n+[Online]: {username}```"
+                line = f"```ini\n[Online]: {username}\n```"
             elif presence_code == 2:
-                line = f"```diff+\n+In Game: {username}```"
+                line = f"```diff\n+ In Game: {username}\n```"
             elif presence_code == 3:
-                line = f"```fix\n-In Studio: {username}```"
+                line = f"```fix\nIn Studio: {username}\n```"
             elif presence_code == 4:
-                line = f"```diff-\n+Alt Farming: {username}```"
+                line = f"```diff\n- Alt Farming: {username}\n```"
             else:
-                line = f"```diff\n-Offline: {username}```"
+                line = f"```diff\n- Offline: {username}\n```"
 
             message_lines.append(line)
         message_lines.append("")
