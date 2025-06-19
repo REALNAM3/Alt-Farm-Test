@@ -2,6 +2,8 @@ import discord
 from discord import app_commands
 import requests
 import os
+from flask import Flask
+import threading
 
 GUILD_ID = 1385103180756553851
 
@@ -25,6 +27,16 @@ ALL_MODS = {
     "Unknown": [7547477786, 7574577126, 2043525911, 5816563976, 240526951, 4531785383,
                 1160595313, 7876617827, 7693766866, 2568824396, 7604102307, 7587479685, 2505902503],
 }
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Running the thing"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
 class MyClient(discord.Client):
     def __init__(self):
@@ -76,5 +88,7 @@ async def mods(interaction: discord.Interaction):
 
     await interaction.followup.send(final_message)
 
-client.run(os.getenv("BOT_TOKEN"))
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.start()
 
+client.run(os.getenv("BOT_TOKEN"))
