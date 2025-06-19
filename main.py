@@ -2,6 +2,20 @@ import discord
 from discord import app_commands
 import requests
 import os
+from flask import Flask
+from threading import Thread
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Estoy vivo"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    Thread(target=run).start()
 
 GUILD_ID = 1385103180756553851
 
@@ -81,4 +95,5 @@ async def mods(interaction: discord.Interaction):
     final_message = "\n".join(message_lines)
     await interaction.followup.send(final_message)
 
+keep_alive()
 client.run(os.getenv("BOT_TOKEN"))
