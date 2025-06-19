@@ -48,7 +48,7 @@ class MyClient(discord.Client):
 
 client = MyClient()
 
-@client.tree.command(name="checkmods", description="Shows if a mod is online")
+@client.tree.command(name="mods", description="Shows if a mod is online")
 async def mods(interaction: discord.Interaction):
     await interaction.response.defer()
 
