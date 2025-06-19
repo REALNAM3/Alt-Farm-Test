@@ -9,15 +9,13 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Estoy vivo"
+    return "Bot activo y funcionando"
 
 def run():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
     Thread(target=run).start()
-
-GUILD_ID = 1385103180756553851
 
 PRESENCE_TYPES = {
     0: "Offline",
@@ -50,9 +48,7 @@ class MyClient(discord.Client):
         print(f"Bot {self.user} ({self.user.id})")
 
     async def setup_hook(self):
-        guild = discord.Object(id=GUILD_ID)
-        self.tree.copy_global_to(guild=guild)
-        await self.tree.sync(guild=guild)
+        await self.tree.sync()
 
 client = MyClient()
 
