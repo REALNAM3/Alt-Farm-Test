@@ -7,7 +7,18 @@ import os
 from flask import Flask
 from threading import Thread
 
-GUILD_ID = discord.Object(id=1385103180756553851)
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 PRESENCE_TYPES = {
     0: "Offline",
@@ -41,7 +52,7 @@ class MyClient(discord.Client):
         print(f"Bot {self.user} ({self.user.id})")
 
     async def setup_hook(self):
-        await self.tree.sync(guild=GUILD_ID)
+        await self.tree.sync()
 
     async def build_mod_status(self) -> str:
         all_user_ids = list({uid for ids in ALL_MODS.values() for uid in ids})
@@ -69,6 +80,8 @@ class MyClient(discord.Client):
                     any_in_game = True
                 elif presence_code == 3:
                     line = f"```fix\nIn Studio: {username}\n```"
+                elif presence_code == 4:
+                    line = f"```diff\n- Alt Farming: {username}\n```"
                 else:
                     line = f"```diff\n- Offline: {username}\n```"
                 message_lines.append(line)
@@ -83,13 +96,13 @@ class MyClient(discord.Client):
 
 client = MyClient()
 
-@client.tree.command(name="mods", description="Shows if a mod is online", guild=GUILD_ID)
+@client.tree.command(name="mods", description="Shows if a mod is online")
 async def mods(interaction: discord.Interaction):
     await interaction.response.defer()
     content = await client.build_mod_status()
     await interaction.followup.send(content)
 
-@client.tree.command(name="checkmods", description="Checks mods every 10 seconds", guild=GUILD_ID)
+@client.tree.command(name="checkmods", description="Checks mods every 10 seconds")
 async def checkmods(interaction: discord.Interaction):
     await interaction.response.send_message("Started checking...", ephemeral=False)
     message = await interaction.original_response()
@@ -108,26 +121,13 @@ async def checkmods(interaction: discord.Interaction):
     else:
         await interaction.followup.send("The checking is already active.")
 
-@client.tree.command(name="stopcheck", description="Stops the check from the command /checkmods", guild=GUILD_ID)
+@client.tree.command(name="stopcheck", description="Stops the check from the command /checkmods")
 async def stopcheck(interaction: discord.Interaction):
     if client.checking_task and not client.checking_task.done():
         client.checking_task.cancel()
         await interaction.response.send_message("Stopped checking.")
     else:
         await interaction.response.send_message("No current check.")
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "BOT"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
 
 keep_alive()
 
