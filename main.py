@@ -25,7 +25,6 @@ PRESENCE_TYPES = {
     1: "Online",
     2: "In Game",
     3: "In Studio",
-    4: "Alt farming"
 }
 
 ALL_MODS = {
@@ -80,8 +79,6 @@ class MyClient(discord.Client):
                     any_in_game = True
                 elif presence_code == 3:
                     line = f"```fix\nIn Studio: {username}\n```"
-                elif presence_code == 4:
-                    line = f"```diff\n- Alt Farming: {username}\n```"
                 else:
                     line = f"```diff\n- Offline: {username}\n```"
                 message_lines.append(line)
