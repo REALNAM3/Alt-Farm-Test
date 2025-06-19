@@ -72,17 +72,16 @@ class MyClient(discord.Client):
                 presence_code = presence_dict.get(uid, 0)
                 user_info = requests.get(f"https://users.roblox.com/v1/users/{uid}")
                 username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
-                displayname = user_info.json().get("displayName", "Unknown") if user_info.status_code == 200 else "Unknown"
 
                 if presence_code == 1:
-                    line = f"```ini\n[Online]: {username} ({displayname})\n```"
+                    line = f"```ini\n[Online]: {username}\n```"
                 elif presence_code == 2:
-                    line = f"```diff\n+ In Game: {username} ({displayname})\n```"
+                    line = f"```diff\n+ In Game: {username}\n```"
                     any_in_game = True
                 elif presence_code == 3:
-                    line = f"```fix\nIn Studio: {username} ({displayname})\n```"
+                    line = f"```fix\nIn Studio: {username}\n```"
                 else:
-                    line = f"```diff\n- Offline: {username} ({displayname})\n```"
+                    line = f"```diff\n- Offline: {username}\n```"
                 message_lines.append(line)
             message_lines.append("")
 
