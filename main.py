@@ -5,8 +5,6 @@ import os
 from flask import Flask
 import threading
 
-GUILD_ID = 1385103180756553851
-
 PRESENCE_TYPES = {
     0: "Offline",
     1: "Online",
@@ -48,7 +46,7 @@ class MyClient(discord.Client):
 
 client = MyClient()
 
-@client.tree.command(name="mods", description="Shows if a mod is online")
+@client.tree.command(name="checkmods", description="Shows if a mod is online")
 async def mods(interaction: discord.Interaction):
     await interaction.response.defer()
 
