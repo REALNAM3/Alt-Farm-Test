@@ -2,8 +2,6 @@ import discord
 from discord import app_commands
 import requests
 import os
-from flask import Flask
-import threading
 
 GUILD_ID = 1385103180756553851
 
@@ -28,23 +26,19 @@ ALL_MODS = {
                 1160595313, 7876617827, 7693766866, 2568824396, 7604102307, 7587479685, 2505902503],
 }
 
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Running the thing"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
 class MyClient(discord.Client):
     def __init__(self):
-        super().__init__(intents=discord.Intents.default())
+        intents = discord.Intents.default()
+        super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
 
+    async def on_ready(self):
+        print(f"Bot {self.user} ({self.user.id})")
+
     async def setup_hook(self):
-        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
+        guild = discord.Object(id=GUILD_ID)
+        self.tree.copy_global_to(guild=guild)
+        await self.tree.sync(guild=guild)
 
 client = MyClient()
 
@@ -53,7 +47,6 @@ async def mods(interaction: discord.Interaction):
     await interaction.response.defer()
 
     all_user_ids = list({uid for ids in ALL_MODS.values() for uid in ids})
-
     response = requests.post("https://presence.roblox.com/v1/presence/users", json={"userIds": all_user_ids})
     if response.status_code != 200:
         await interaction.followup.send("Error")
@@ -84,11 +77,8 @@ async def mods(interaction: discord.Interaction):
 
             message_lines.append(line)
         message_lines.append("")
+
     final_message = "\n".join(message_lines)
-
     await interaction.followup.send(final_message)
-
-flask_thread = threading.Thread(target=run_flask)
-flask_thread.start()
 
 client.run(os.getenv("BOT_TOKEN"))
