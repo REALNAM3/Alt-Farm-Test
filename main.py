@@ -5,6 +5,8 @@ import os
 from flask import Flask
 import threading
 
+GUILD_ID = 1385103180756553851
+
 PRESENCE_TYPES = {
     0: "Offline",
     1: "Online",
