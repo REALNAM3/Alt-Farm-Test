@@ -112,7 +112,7 @@ async def checkmods(interaction: discord.Interaction):
                 await msg.edit(content=content)
             except discord.NotFound:
                 break
-            await asyncio.sleep(30)
+            await asyncio.sleep(60)
 
     if client.checking_task is None or client.checking_task.done():
         client.checking_task = asyncio.create_task(periodic_check(message))
