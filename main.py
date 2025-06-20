@@ -100,7 +100,7 @@ async def mods(interaction: discord.Interaction):
     content = await client.build_mod_status()
     await interaction.followup.send(content)
 
-@client.tree.command(name="checkmods", description="Checks mods every 10 seconds")
+@client.tree.command(name="checkmods", description="Checks mods every minute")
 async def checkmods(interaction: discord.Interaction):
     await interaction.response.send_message("Started checking...", ephemeral=False)
     message = await interaction.original_response()
