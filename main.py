@@ -106,10 +106,8 @@ async def mods(interaction: discord.Interaction):
 
 @client.tree.command(name="checkmods", description="Checks mods every 10 seconds")
 async def checkmods(interaction: discord.Interaction):
-    await interaction.response.send_message("Started checking every 10 seconds...", ephemeral=True)
-    monitor_msg = await interaction.channel.send("Loading mod status...")
-
     client.checking_user_id = interaction.user.id
+    monitor_msg = await interaction.channel.send("Loading...")
 
     async def periodic_check(msg):
         try:
@@ -122,18 +120,19 @@ async def checkmods(interaction: discord.Interaction):
                     break
                 await asyncio.sleep(10)
         except asyncio.CancelledError:
-            await msg.edit(content="Stopped checking")
+            await msg.edit(content="⛔ Monitoreo detenido.")
 
     if client.checking_task is None or client.checking_task.done():
         client.checking_task = asyncio.create_task(periodic_check(monitor_msg))
+        await interaction.response.send_message("Started checking...")
     else:
-        await interaction.followup.send("There is no active checking")
+        await interaction.response.send_message("There is already a checking active", ephemeral=True)
 
 @client.tree.command(name="stopcheck", description="Stops the check from the command /checkmods")
 async def stopcheck(interaction: discord.Interaction):
     if client.checking_task and not client.checking_task.done():
         if interaction.user.id != client.checking_user_id:
-            await interaction.response.send_message("Only the person who activated it can stop it.", ephemeral=True)
+            await interaction.response.send_message("You cant stop it", ephemeral=True)
             return
 
         client.checking_task.cancel()
@@ -141,7 +140,7 @@ async def stopcheck(interaction: discord.Interaction):
         client.checking_user_id = None
         await interaction.response.send_message("Stopped checking")
     else:
-        await interaction.response.send_message("There is no currently checking")
+        await interaction.response.send_message("Started")
 
 keep_alive()
 client.run(os.getenv("BOT_TOKEN"))
