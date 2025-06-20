@@ -29,7 +29,7 @@ PRESENCE_TYPES = {
 
 ALL_MODS = {
     "Chase": [22808138, 4782733628, 7447190808, 3196162848],
-    "Orion": [547598710, 5728889572, 4652232128, 7043591647, 4149966999, 7209929547, 7043958628, 7418525152, ],
+    "Orion": [547598710, 5728889572, 4652232128, 7043591647, 4149966999, 7209929547, 7043958628, 7418525152],
     "LisNix": [162442297, 702354331],
     "Nwr": [307212658, 5097000699, 4923561416],
     "Gorilla": [514679433, 2431747703, 4531785383],
@@ -47,6 +47,7 @@ class MyClient(discord.Client):
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
         self.checking_task = None
+        self.checking_user = None  # Guardamos el usuario que inició el check
 
     async def on_ready(self):
         print(f"Bot {self.user} ({self.user.id})")
@@ -104,15 +105,23 @@ async def mods(interaction: discord.Interaction):
 async def checkmods(interaction: discord.Interaction):
     await interaction.response.send_message("Started checking...", ephemeral=False)
     message = await interaction.original_response()
+    client.checking_user = interaction.user.id  # Guardamos al que lo ejecutó
 
     async def periodic_check(msg):
-        while True:
-            content = await client.build_mod_status()
-            try:
-                await msg.edit(content=content)
-            except discord.NotFound:
-                break
-            await asyncio.sleep(10)
+        try:
+            while True:
+                content = await client.build_mod_status()
+                try:
+                    await msg.edit(content=content)
+                except discord.NotFound:
+                    break  # mensaje eliminado
+                except discord.HTTPException:
+                    pass  # problema temporal al editar
+                await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            pass  # tarea detenida de forma segura
+        except Exception as e:
+            print(f"Error en periodic_check: {e}")
 
     if client.checking_task is None or client.checking_task.done():
         client.checking_task = asyncio.create_task(periodic_check(message))
@@ -122,11 +131,16 @@ async def checkmods(interaction: discord.Interaction):
 @client.tree.command(name="stopcheck", description="Stops the check from the command /checkmods")
 async def stopcheck(interaction: discord.Interaction):
     if client.checking_task and not client.checking_task.done():
+        if interaction.user.id != client.checking_user:
+            await interaction.response.send_message("You didn't start the check, so you can't stop it.", ephemeral=True)
+            return
+
         client.checking_task.cancel()
+        client.checking_task = None
+        client.checking_user = None
         await interaction.response.send_message("Stopped checking.")
     else:
         await interaction.response.send_message("No current check.")
 
 keep_alive()
-
 client.run(os.getenv("BOT_TOKEN"))
