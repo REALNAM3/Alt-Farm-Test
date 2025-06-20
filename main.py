@@ -47,7 +47,7 @@ class MyClient(discord.Client):
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
         self.checking_task = None
-        self.checking_user = None  # Guardamos el usuario que inició el check
+        self.checking_user = None
 
     async def on_ready(self):
         print(f"Bot {self.user} ({self.user.id})")
@@ -58,6 +58,12 @@ class MyClient(discord.Client):
     async def build_mod_status(self) -> str:
         all_user_ids = list({uid for ids in ALL_MODS.values() for uid in ids})
         response = requests.post("https://presence.roblox.com/v1/presence/users", json={"userIds": all_user_ids})
+        
+        if response.status_code == 429:
+            print("Rate limited. Waiting 10 seconds...")
+            await asyncio.sleep(10)
+            return "Rate limited. Please wait and try again."
+
         if response.status_code != 200:
             return "Error."
 
@@ -71,8 +77,16 @@ class MyClient(discord.Client):
             message_lines.append(f"**{mod_name}**")
             for uid in user_ids:
                 presence_code = presence_dict.get(uid, 0)
+
+                await asyncio.sleep(0.5)
+
                 user_info = requests.get(f"https://users.roblox.com/v1/users/{uid}")
-                username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
+                if user_info.status_code == 429:
+                    print(f"Rate limited on user {uid}. Waiting 10 seconds...")
+                    await asyncio.sleep(10)
+                    username = "Rate Limited"
+                else:
+                    username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
 
                 if presence_code == 1:
                     line = f"```ini\n[Online]: {username}\n```"
@@ -105,7 +119,7 @@ async def mods(interaction: discord.Interaction):
 async def checkmods(interaction: discord.Interaction):
     await interaction.response.send_message("Started checking...", ephemeral=False)
     message = await interaction.original_response()
-    client.checking_user = interaction.user.id  # Guardamos al que lo ejecutó
+    client.checking_user = interaction.user.id
 
     async def periodic_check(msg):
         try:
@@ -114,12 +128,12 @@ async def checkmods(interaction: discord.Interaction):
                 try:
                     await msg.edit(content=content)
                 except discord.NotFound:
-                    break  # mensaje eliminado
+                    break
                 except discord.HTTPException:
-                    pass  # problema temporal al editar
+                    pass
                 await asyncio.sleep(10)
         except asyncio.CancelledError:
-            pass  # tarea detenida de forma segura
+            pass
         except Exception as e:
             print(f"Error en periodic_check: {e}")
 
