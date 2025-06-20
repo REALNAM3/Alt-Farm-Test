@@ -60,12 +60,11 @@ class MyClient(discord.Client):
         response = requests.post("https://presence.roblox.com/v1/presence/users", json={"userIds": all_user_ids})
         
         if response.status_code == 429:
-            print("Rate limited. Waiting 10 seconds...")
             await asyncio.sleep(10)
-            return "Rate limited. Please wait and try again."
+            return "Rate limited. Waiting 10 seconds..."
 
         if response.status_code != 200:
-            return "Error."
+            return "Error fetching presence data."
 
         presences = response.json().get("userPresences", [])
         presence_dict = {user["userId"]: user["userPresenceType"] for user in presences}
@@ -76,18 +75,15 @@ class MyClient(discord.Client):
         for mod_name, user_ids in ALL_MODS.items():
             message_lines.append(f"**{mod_name}**")
             for uid in user_ids:
-                presence_code = presence_dict.get(uid, 0)
-
                 await asyncio.sleep(0.5)
-
                 user_info = requests.get(f"https://users.roblox.com/v1/users/{uid}")
                 if user_info.status_code == 429:
-                    print(f"Rate limited on user {uid}. Waiting 10 seconds...")
                     await asyncio.sleep(10)
                     username = "Rate Limited"
                 else:
                     username = user_info.json().get("name", "Unknown") if user_info.status_code == 200 else "Unknown"
 
+                presence_code = presence_dict.get(uid, 0)
                 if presence_code == 1:
                     line = f"```ini\n[Online]: {username}\n```"
                 elif presence_code == 2:
@@ -105,7 +101,12 @@ class MyClient(discord.Client):
         message_lines.append(status_line)
         message_lines.append(f"*Last update: {timestamp}*")
 
-        return "\n".join(message_lines)
+        full_message = "\n".join(message_lines)
+
+        if len(full_message) > 2000:
+            full_message = full_message[:1990] + "\n[CHARACTER LIMITED]"
+
+        return full_message
 
 client = MyClient()
 
@@ -117,44 +118,44 @@ async def mods(interaction: discord.Interaction):
 
 @client.tree.command(name="checkmods", description="Checks mods every 10 seconds")
 async def checkmods(interaction: discord.Interaction):
-    await interaction.response.send_message("Started checking...", ephemeral=False)
-    message = await interaction.original_response()
+    await interaction.response.send_message("Started checking mods every 10s...", ephemeral=True)
+
+    monitor_msg = await interaction.channel.send("Started checking...")
     client.checking_user = interaction.user.id
 
     async def periodic_check(msg):
         try:
             while True:
                 content = await client.build_mod_status()
+                if len(content) > 2000:
+                    content = content[:1990] + "\n[CHARACTER LIMITED]"
                 try:
                     await msg.edit(content=content)
-                except discord.NotFound:
+                except discord.HTTPException as e:
+                    print(f"Error editing message: {e}")
                     break
-                except discord.HTTPException:
-                    pass
                 await asyncio.sleep(10)
         except asyncio.CancelledError:
             pass
-        except Exception as e:
-            print(f"Error en periodic_check: {e}")
 
     if client.checking_task is None or client.checking_task.done():
-        client.checking_task = asyncio.create_task(periodic_check(message))
+        client.checking_task = asyncio.create_task(periodic_check(monitor_msg))
     else:
-        await interaction.followup.send("The checking is already active.")
+        await interaction.followup.send("There is an active checking")
 
-@client.tree.command(name="stopcheck", description="Stops the check from the command /checkmods")
+@client.tree.command(name="stopcheck", description="Stops the check started with /checkmods")
 async def stopcheck(interaction: discord.Interaction):
     if client.checking_task and not client.checking_task.done():
         if interaction.user.id != client.checking_user:
-            await interaction.response.send_message("You didn't start the check, so you can't stop it.", ephemeral=True)
+            await interaction.response.send_message("Only the .", ephemeral=True)
             return
 
         client.checking_task.cancel()
         client.checking_task = None
         client.checking_user = None
-        await interaction.response.send_message("Stopped checking.")
+        await interaction.response.send_message("Stoped check")
     else:
-        await interaction.response.send_message("No current check.")
+        await interaction.response.send_message("No currently checking")
 
 keep_alive()
 client.run(os.getenv("BOT_TOKEN"))
